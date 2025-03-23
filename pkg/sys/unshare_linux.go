@@ -26,11 +26,17 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
+	"k8s.io/klog/v2"
 )
 
 // UnshareAfterEnterUserns allows to disassociate parts of its execution context
 // within a user namespace.
 func UnshareAfterEnterUserns(uidMap, gidMap string, unshareFlags uintptr, f func(pid int) error) (retErr error) {
+	// if uidMap == "3000:1310720:65536" {
+	// 	klog.V(0).Info("DEBUG: In UnshareAfterEnterUserns, early return")
+	// 	return nil
+	// }
+
 	if unshareFlags&syscall.CLONE_NEWUSER == syscall.CLONE_NEWUSER {
 		return fmt.Errorf("unshare flags should not include user namespace")
 	}
@@ -44,6 +50,8 @@ func UnshareAfterEnterUserns(uidMap, gidMap string, unshareFlags uintptr, f func
 	if err != nil {
 		return err
 	}
+
+	klog.V(0).Infof("DEBUG:In UnshareAfterEnterUserns, uidMaps: %v, gidMaps: %v", uidMaps, gidMaps)
 
 	var pidfd int
 	proc, err := os.StartProcess("/proc/self/exe", []string{"UnshareAfterEnterUserns"}, &os.ProcAttr{
@@ -114,37 +122,43 @@ func UnshareAfterEnterUserns(uidMap, gidMap string, unshareFlags uintptr, f func
 
 // TODO: Support multiple mappings in future
 func parseIDMapping(mapping string) ([]syscall.SysProcIDMap, error) {
-	parts := strings.Split(mapping, ":")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("user namespace mappings require the format `container-id:host-id:size`")
-	}
+	var idMappings []syscall.SysProcIDMap
 
-	cID, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return nil, fmt.Errorf("invalid container id for user namespace remapping, %w", err)
-	}
+	mappings := strings.Split(mapping, ",")
+	for i, m := range mappings {
+		parts := strings.Split(m, ":")
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("invalid mapping format at position %d (%q), expected `container-id:host-id:size`", i, m)
+		}
 
-	hID, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("invalid host id for user namespace remapping, %w", err)
-	}
+		cID, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return nil, fmt.Errorf("invalid container ID in mapping %d (%q): %w", i, m, err)
+		}
 
-	size, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return nil, fmt.Errorf("invalid size for user namespace remapping, %w", err)
-	}
+		hID, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid host ID in mapping %d (%q): %w", i, m, err)
+		}
 
-	if cID < 0 || hID < 0 || size < 0 {
-		return nil, fmt.Errorf("invalid mapping %s, all IDs and size must be positive integers", mapping)
-	}
+		size, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return nil, fmt.Errorf("invalid size in mapping %d (%q): %w", i, m, err)
+		}
 
-	return []syscall.SysProcIDMap{
-		{
+		if cID < 0 || hID < 0 || size < 0 {
+			return nil, fmt.Errorf("negative values not allowed in mapping %d (%q): container=%d host=%d size=%d",
+				i, m, cID, hID, size)
+		}
+
+		idMappings = append(idMappings, syscall.SysProcIDMap{
 			ContainerID: cID,
 			HostID:      hID,
 			Size:        size,
-		},
-	}, nil
+		})
+	}
+
+	return idMappings, nil
 }
 
 func pidfdWaitid(pidfd int) error {

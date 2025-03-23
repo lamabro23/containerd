@@ -26,6 +26,7 @@ import (
 	"github.com/containerd/errdefs/pkg/errgrpc"
 	"github.com/containerd/typeurl/v2"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/mount"
 	"github.com/containerd/containerd/v2/core/sandbox"
@@ -67,6 +68,7 @@ func (s *remoteSandboxController) Create(ctx context.Context, sandboxInfo sandbo
 }
 
 func (s *remoteSandboxController) Start(ctx context.Context, sandboxID string) (sandbox.ControllerInstance, error) {
+	klog.V(0).Infof("DEBUG: !!!!!!!!! Start remote sandbox controller %s", sandboxID)
 	resp, err := s.client.Start(ctx, &api.ControllerStartRequest{
 		SandboxID: sandboxID,
 		Sandboxer: s.sandboxerName,

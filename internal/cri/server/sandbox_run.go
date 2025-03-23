@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/log"
 	"github.com/containerd/typeurl/v2"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/leases"
 	sb "github.com/containerd/containerd/v2/core/sandbox"
@@ -53,7 +54,7 @@ func init() {
 func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandboxRequest) (_ *runtime.RunPodSandboxResponse, retErr error) {
 	span := tracing.SpanFromContext(ctx)
 	config := r.GetConfig()
-	log.G(ctx).Debugf("Sandbox config %+v", config)
+	log.G(ctx).Debugf("DEBUG: Sandbox config %+v", config)
 
 	// Generate unique id and name for the sandbox and reserve the name.
 	id := util.GenerateID()
@@ -273,7 +274,9 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	if err := c.sandboxService.CreateSandbox(ctx, sandboxInfo, sb.WithOptions(config), sb.WithNetNSPath(sandbox.NetNSPath)); err != nil {
 		return nil, fmt.Errorf("failed to create sandbox %q: %w", id, err)
 	}
+	// FIXME: AFTER THIS POINT IS WHERE THE CODE GOES TO SHIT
 
+	klog.V(0).Infof("DEBUG: I am about to call StartSandbox gRPC method.")
 	ctrl, err := c.sandboxService.StartSandbox(ctx, sandbox.Sandboxer, id)
 	if err != nil {
 		var cerr podsandbox.CleanupErr

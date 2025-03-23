@@ -24,9 +24,11 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
+	"k8s.io/klog/v2"
 )
 
 func parseIDMapping(mapping string) (syscall.SysProcIDMap, error) {
+	klog.V(0).Infof("DEBUG: In parseIDMapping, mapping: %s", mapping)
 	var retval syscall.SysProcIDMap
 
 	parts := strings.Split(mapping, ":")
@@ -79,6 +81,7 @@ func parseIDMappingList(mappings string) ([]syscall.SysProcIDMap, error) {
 
 // IDMapMount clones the mount at source to target, applying GID/UID idmapping of the user namespace for target path
 func IDMapMount(source, target string, usernsFd int) (err error) {
+	klog.V(0).Infof("DEBUG: In IDMapMount, source: %s, target: %s, usernsFd: %d", source, target, usernsFd)
 	return IDMapMountWithAttrs(source, target, usernsFd, 0, 0)
 }
 

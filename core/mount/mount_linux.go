@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/log"
 	"github.com/moby/sys/userns"
 	"golang.org/x/sys/unix"
+	"k8s.io/klog/v2"
 )
 
 type mountOpt struct {
@@ -61,6 +62,7 @@ func init() {
 //     temporary mount points for lowedirs will be cleaned properly.
 //  3. Error -- nil if everything's fine, otherwise an error.
 func prepareIDMappedOverlay(usernsFd int, options []string) ([]string, func(), error) {
+	klog.V(0).Infof("DEBUG: In prepareIDMappedOverlay, usernsFd: %d, options: %v", usernsFd, options)
 	lowerIdx, lowerDirs := findOverlayLowerdirs(options)
 	if lowerIdx == -1 {
 		return options, nil, fmt.Errorf("failed to parse overlay lowerdir's from given options")

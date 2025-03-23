@@ -26,6 +26,7 @@ import (
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 )
 
 func (c *criService) bringUpLoopback(netns string) error {
@@ -42,31 +43,38 @@ func (c *criService) bringUpLoopback(netns string) error {
 }
 
 func (c *criService) setupNetnsWithinUserns(netnsMountDir string, opt *runtime.UserNamespace) (*netns.NetNS, error) {
+	klog.V(0).Infof("DEBUG: Setting up netns with user namespace")
 	if opt.GetMode() != runtime.NamespaceMode_POD {
 		return nil, fmt.Errorf("required pod-level user namespace setting")
 	}
 
 	uidMaps := opt.GetUids()
-	if len(uidMaps) != 1 {
-		return nil, fmt.Errorf("required only one uid mapping, but got %d uid mapping(s)", len(uidMaps))
-	}
-	if uidMaps[0] == nil {
-		return nil, fmt.Errorf("required only one uid mapping, but got empty uid mapping")
+	if len(uidMaps) == 0 {
+		return nil, fmt.Errorf("required at least one uid mapping, but got empty uid mapping")
 	}
 
 	gidMaps := opt.GetGids()
-	if len(gidMaps) != 1 {
-		return nil, fmt.Errorf("required only one gid mapping, but got %d gid mapping(s)", len(gidMaps))
+	if len(gidMaps) == 0 {
+		return nil, fmt.Errorf("required at least one gid mapping, but got empty gid mapping")
 	}
-	if gidMaps[0] == nil {
-		return nil, fmt.Errorf("required only one gid mapping, but got empty gid mapping")
+
+	if len(uidMaps) != len(gidMaps) {
+		return nil, fmt.Errorf("uid mapping and gid mapping should have the same length")
 	}
 
 	var netNs *netns.NetNS
+
 	var err error
+	uidMapsString := ""
+	gidMapsString := ""
+	for i := range uidMaps {
+		uidMapsString += fmt.Sprintf("%d:%d:%d,", uidMaps[i].ContainerId, uidMaps[i].HostId, uidMaps[i].Length)
+		gidMapsString += fmt.Sprintf("%d:%d:%d,", gidMaps[i].ContainerId, gidMaps[i].HostId, gidMaps[i].Length)
+	}
+
 	uerr := sys.UnshareAfterEnterUserns(
-		fmt.Sprintf("%d:%d:%d", uidMaps[0].ContainerId, uidMaps[0].HostId, uidMaps[0].Length),
-		fmt.Sprintf("%d:%d:%d", gidMaps[0].ContainerId, gidMaps[0].HostId, gidMaps[0].Length),
+		uidMapsString[:len(uidMapsString)-1],
+		gidMapsString[:len(gidMapsString)-1],
 		syscall.CLONE_NEWNET,
 		func(pid int) error {
 			netNs, err = netns.NewNetNSFromPID(netnsMountDir, uint32(pid))
@@ -79,5 +87,26 @@ func (c *criService) setupNetnsWithinUserns(netnsMountDir string, opt *runtime.U
 	if uerr != nil {
 		return nil, uerr
 	}
+
+	// for i := range uidMaps {
+	// 	klog.V(0).Infof("Setting up netns with uid map %d:%d:%d, gid map %d:%d:%d", 
+	// 						uidMaps[i].ContainerId, uidMaps[i].HostId, uidMaps[i].Length, 
+	// 						gidMaps[i].ContainerId, gidMaps[i].HostId, gidMaps[i].Length)
+	// 	uerr := sys.UnshareAfterEnterUserns(
+	// 		fmt.Sprintf("%d:%d:%d", uidMaps[i].ContainerId, uidMaps[i].HostId, uidMaps[i].Length),
+	// 		fmt.Sprintf("%d:%d:%d", gidMaps[i].ContainerId, gidMaps[i].HostId, gidMaps[i].Length),
+	// 		syscall.CLONE_NEWNET,
+	// 		func(pid int) error {
+	// 			netNs, err = netns.NewNetNSFromPID(netnsMountDir, uint32(pid))
+	// 			if err != nil {
+	// 				return fmt.Errorf("failed to mount netns from pid %d: %w", pid, err)
+	// 			}
+	// 			return nil
+	// 		},
+	// 	)
+	// 	if uerr != nil {
+	// 		return nil, uerr
+	// 	}
+	// }
 	return netNs, nil
 }

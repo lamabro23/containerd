@@ -4,7 +4,10 @@ package sandbox
 
 import (
 	context "context"
+
+	"github.com/containerd/log"
 	ttrpc "github.com/containerd/ttrpc"
+	"github.com/sirupsen/logrus"
 )
 
 type TTRPCSandboxService interface {
@@ -109,6 +112,7 @@ func (c *ttrpcsandboxClient) CreateSandbox(ctx context.Context, req *CreateSandb
 
 func (c *ttrpcsandboxClient) StartSandbox(ctx context.Context, req *StartSandboxRequest) (*StartSandboxResponse, error) {
 	var resp StartSandboxResponse
+	log.G(ctx).Errorf("DEBUG: failed to get sandbox controller by in TT RPC")
 	if err := c.client.Call(ctx, "containerd.runtime.sandbox.v1.Sandbox", "StartSandbox", req, &resp); err != nil {
 		return nil, err
 	}

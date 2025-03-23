@@ -29,6 +29,7 @@ import (
 
 	"github.com/containerd/log"
 	"github.com/containerd/platforms"
+	"k8s.io/klog/v2"
 
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/cmd/ctr/commands"
@@ -172,6 +173,7 @@ func NewContainer(ctx context.Context, client *containerd.Client, cliContext *cl
 				if gidSpec, err = parseIDMappingOption(gidmaps); err != nil {
 					return nil, err
 				}
+				klog.V(0).Infof("DEBUG: User namespace remapping: %v %v", uidSpec, gidSpec)
 				opts = append(opts, oci.WithUserNamespace(uidSpec, gidSpec))
 				// use snapshotter opts or the remapped snapshot support to shift the filesystem
 				// currently the snapshotters known to support the labels are:

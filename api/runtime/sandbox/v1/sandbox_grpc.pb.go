@@ -10,6 +10,8 @@ package sandbox
 
 import (
 	context "context"
+
+	"github.com/containerd/log"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -64,6 +66,7 @@ func (c *sandboxClient) CreateSandbox(ctx context.Context, in *CreateSandboxRequ
 }
 
 func (c *sandboxClient) StartSandbox(ctx context.Context, in *StartSandboxRequest, opts ...grpc.CallOption) (*StartSandboxResponse, error) {
+	log.G(ctx).Errorf("DEBUG: failed to get sandbox controller by in SandboxClient")
 	out := new(StartSandboxResponse)
 	err := c.cc.Invoke(ctx, "/containerd.runtime.sandbox.v1.Sandbox/StartSandbox", in, out, opts...)
 	if err != nil {

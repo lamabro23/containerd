@@ -33,6 +33,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/containers"
@@ -383,6 +384,7 @@ func (c *criService) volumeMounts(platform imagespec.Platform, containerRootDir 
 			gidMappings = usernsOpts.GetGids()
 		}
 	}
+	klog.V(0).Infof("Volume mounts for container %q: %v", containerConfig.GetMetadata().GetName(), config.Volumes)
 
 	criMounts := containerConfig.GetMounts()
 

@@ -26,6 +26,7 @@ import (
 	"github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/sandbox"
 	criconfig "github.com/containerd/containerd/v2/internal/cri/config"
+	"github.com/containerd/log"
 )
 
 type criSandboxService struct {
@@ -57,6 +58,7 @@ func (c *criSandboxService) CreateSandbox(ctx context.Context, info sandbox.Sand
 }
 
 func (c *criSandboxService) StartSandbox(ctx context.Context, sandboxer string, sandboxID string) (sandbox.ControllerInstance, error) {
+	log.G(ctx).Errorf("DEBUG: In CRI Sandbox Service at StartSandbox")
 	ctrl, err := c.SandboxController(sandboxer)
 	if err != nil {
 		return sandbox.ControllerInstance{}, err

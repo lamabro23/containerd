@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	"k8s.io/klog/v2"
 )
 
 /*
@@ -1816,6 +1818,7 @@ func direntNamlen(buf []byte) (uint64, bool) {
 func Mount(source string, target string, fstype string, flags uintptr, data string) (err error) {
 	// Certain file systems get rather angry and EINVAL if you give
 	// them an empty string of data, rather than NULL.
+	klog.V(0).Infof("DEBUG: in syscall.Mount(%s, %s, %s, %d, %s)", source, target, fstype, flags, data)
 	if data == "" {
 		return mount(source, target, fstype, flags, nil)
 	}

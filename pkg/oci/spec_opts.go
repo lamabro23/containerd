@@ -33,6 +33,7 @@ import (
 	"github.com/moby/sys/user"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/containers"
 	"github.com/containerd/containerd/v2/core/content"
@@ -557,6 +558,7 @@ func WithUserNamespace(uidMap, gidMap []specs.LinuxIDMapping) SpecOpts {
 		}
 		s.Linux.UIDMappings = append(s.Linux.UIDMappings, uidMap...)
 		s.Linux.GIDMappings = append(s.Linux.GIDMappings, gidMap...)
+		klog.V(0).Infof("DEBUG: !!!!!!!!! WithUserNamespace: %v - %v", s.Linux.UIDMappings, s.Linux.GIDMappings)
 		return nil
 	}
 }

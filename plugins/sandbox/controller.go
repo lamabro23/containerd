@@ -29,6 +29,7 @@ import (
 	"github.com/containerd/plugin/registry"
 	"github.com/containerd/typeurl/v2"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
+	"k8s.io/klog/v2"
 
 	runtimeAPI "github.com/containerd/containerd/api/runtime/sandbox/v1"
 	"github.com/containerd/containerd/api/types"
@@ -167,6 +168,7 @@ func (c *controllerLocal) Create(ctx context.Context, info sandbox.Sandbox, opts
 }
 
 func (c *controllerLocal) Start(ctx context.Context, sandboxID string) (sandbox.ControllerInstance, error) {
+	klog.V(0).Infof("DEBUG: !!!!!!!!! Start sandbox %s", sandboxID)
 	shim, err := c.shims.Get(ctx, sandboxID)
 	if err != nil {
 		return sandbox.ControllerInstance{}, fmt.Errorf("unable to find sandbox %q", sandboxID)

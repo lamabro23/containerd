@@ -28,6 +28,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/opencontainers/selinux/go-selinux"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/sandbox"
@@ -91,12 +92,13 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	if err != nil {
 		return cin, fmt.Errorf("failed to get sandbox runtime: %w", err)
 	}
-	log.G(ctx).WithField("podsandboxid", id).Debugf("use OCI runtime %+v", ociRuntime)
+	log.G(ctx).WithField("podsandboxid", id).Debugf("DEBUG: use OCI runtime %+v", ociRuntime)
 
 	labels["oci_runtime_type"] = ociRuntime.Type
 
 	// Create sandbox container root directories.
 	sandboxRootDir := c.getSandboxRootDir(id)
+	log.G(ctx).WithField("sandboxRootDir", sandboxRootDir).Debug("DEBUG: Create sandbox root directory.")
 	if err := c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
 		return cin, fmt.Errorf("failed to create sandbox root directory %q: %w",
 			sandboxRootDir, err)
@@ -136,7 +138,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	if err != nil {
 		return cin, fmt.Errorf("failed to generate sandbox container spec: %w", err)
 	}
-	log.G(ctx).WithField("podsandboxid", id).Debugf("sandbox container spec: %#+v", spew.NewFormatter(spec))
+	log.G(ctx).WithField("podsandboxid", id).Debugf("DEBUG: sandbox container spec: %#+v", spew.NewFormatter(spec))
 
 	metadata.ProcessLabel = spec.Process.SelinuxLabel
 	defer func() {
@@ -181,6 +183,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 		containerd.WithRuntime(ociRuntime.Type, podSandbox.Runtime.Options),
 	}
 
+	klog.V(0).Infof("DEBUG: About to create a new container %s", id)
 	container, err := c.client.NewContainer(ctx, id, opts...)
 	if err != nil {
 		return cin, fmt.Errorf("failed to create containerd container: %w", err)
@@ -198,6 +201,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	}()
 
 	// Setup files required for the sandbox.
+	klog.V(0).Infof("DEBUG: About to setup sandbox files %s", id)
 	if err = c.setupSandboxFiles(id, config); err != nil {
 		return cin, fmt.Errorf("failed to setup sandbox files: %w", err)
 	}
@@ -227,6 +231,7 @@ func (c *Controller) Start(ctx context.Context, id string) (cin sandbox.Controll
 	// We don't need stdio for sandbox container.
 	task, err := container.NewTask(ctx, containerdio.NullIO, taskOpts...)
 	if err != nil {
+		klog.V(0).Infof("DEBUG: Failed to create containerd task: %v", err)
 		return cin, fmt.Errorf("failed to create containerd task: %w", err)
 	}
 	defer func() {

@@ -29,6 +29,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 	"golang.org/x/sys/unix"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/snapshots"
 	"github.com/containerd/containerd/v2/internal/cri/annotations"
@@ -92,6 +93,7 @@ func (c *Controller) sandboxContainerSpec(id string, config *runtime.PodSandboxC
 
 	usernsOpts := nsOptions.GetUsernsOptions()
 	uids, gids, err := parseUsernsIDs(usernsOpts)
+	klog.V(0).Infof("DEBUG: User namespace configuration: uids: %v, gids: %v", uids, gids)
 	var usernsEnabled bool
 	if err != nil {
 		return nil, fmt.Errorf("user namespace configuration: %w", err)
@@ -226,6 +228,7 @@ func (c *Controller) sandboxContainerSpecOpts(config *runtime.PodSandboxConfig, 
 		specOpts = append(specOpts, seccompSpecOpts)
 	}
 
+	klog.V(0).Infof("DEBUG: Security context: %v", securityContext)
 	userstr, err := generateUserString(
 		"",
 		securityContext.GetRunAsUser(),
@@ -242,6 +245,7 @@ func (c *Controller) sandboxContainerSpecOpts(config *runtime.PodSandboxConfig, 
 	if userstr != "" {
 		specOpts = append(specOpts, oci.WithUser(userstr))
 	}
+	klog.V(0).Infof("DEBUG: User string: %s, %s", userstr, imageConfig.User)
 	return specOpts, nil
 }
 

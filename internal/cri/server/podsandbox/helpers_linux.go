@@ -34,6 +34,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"golang.org/x/sys/unix"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/core/mount"
@@ -102,6 +103,7 @@ func (c *Controller) getSandboxPinnedUserNamespace(id string) string {
 
 // pinUserNamespace persists user namespace in namespace filesystem.
 func (c *Controller) pinUserNamespace(sandboxID string, netnsPath string) error {
+	klog.V(0).Infof("DEBUG: Pin user namespace for sandbox %q with %s [helpers_linux/pinUserNamespace()]", sandboxID, netnsPath)
 	nsPath := c.getSandboxPinnedUserNamespace(sandboxID)
 
 	baseDir := filepath.Dir(nsPath)
@@ -126,6 +128,26 @@ func (c *Controller) pinUserNamespace(sandboxID string, netnsPath string) error 
 		return fmt.Errorf("failed to get user namespace for netns(%s): %w", netnsPath, err)
 	}
 	defer usernsFd.Close()
+
+	klog.V(0).Infof("DEBUG: Bind mount user namespace %s to %s", usernsFd.Name(), nsPath)
+
+	klog.V(0).Infof("DEBUG: This PID: %s", usernsFd.Name())
+	thisPID := strings.Split(usernsFd.Name(), "/")[2]
+	klog.V(0).Infof("DEBUG: This PID: %s", thisPID)
+	newPath := "proc/" + thisPID + "/"
+
+	klog.V(0).Infof("DEBUG: New Path: %s", newPath)
+	dat, err := os.ReadFile(newPath + "uid_map")
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+	klog.V(0).Infof("DEBUG: UID_MAP: %s", dat)
+
+	dat, err = os.ReadFile(newPath + "gid_map")
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+	klog.V(0).Infof("DEBUG: GID_MAP: %s", dat)
 
 	if err = unix.Mount(usernsFd.Name(), nsPath, "none", unix.MS_BIND, ""); err != nil {
 		return fmt.Errorf("failed to bind mount ns src: %v at %s: %w", usernsFd.Name(), nsPath, err)
@@ -314,27 +336,20 @@ func parseUsernsIDMap(runtimeIDMap []*runtime.IDMapping) ([]runtimespec.LinuxIDM
 		return m, nil
 	}
 
-	if len(runtimeIDMap) > 1 {
-		// We only accept 1 line, because containerd.WithRemappedSnapshot() only supports that.
-		return m, fmt.Errorf("only one mapping line supported, got %v mapping lines", len(runtimeIDMap))
-	}
+	for _, idMap := range runtimeIDMap {
+		if idMap == nil {
+			continue
+		}
 
-	// We know len is 1 now.
-	if runtimeIDMap[0] == nil {
-		return m, nil
-	}
-	uidMap := *runtimeIDMap[0]
+		if idMap.Length < 1 {
+			return m, fmt.Errorf("invalid mapping length: %v", idMap.Length)
+		}
 
-	if uidMap.Length < 1 {
-		return m, fmt.Errorf("invalid mapping length: %v", uidMap.Length)
-	}
-
-	m = []runtimespec.LinuxIDMapping{
-		{
-			ContainerID: uidMap.ContainerId,
-			HostID:      uidMap.HostId,
-			Size:        uidMap.Length,
-		},
+		m = append(m, runtimespec.LinuxIDMapping{
+			ContainerID: idMap.ContainerId,
+			HostID:      idMap.HostId,
+			Size:        idMap.Length,
+		})
 	}
 
 	return m, nil

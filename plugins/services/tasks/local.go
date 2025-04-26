@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	api "github.com/containerd/containerd/api/services/tasks/v1"
@@ -41,6 +42,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/containers"
 	"github.com/containerd/containerd/v2/core/content"
@@ -159,6 +161,7 @@ type local struct {
 }
 
 func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.CallOption) (*api.CreateTaskResponse, error) {
+	klog.V(0).Infof("DEBUG: In Create, r: %v", r)
 	container, err := l.getContainer(ctx, r.ContainerID)
 	if err != nil {
 		return nil, errgrpc.ToGRPC(err)
@@ -220,6 +223,15 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		Address:        taskAPIAddress,
 		Version:        taskAPIVersion,
 	}
+
+	if strings.Contains(string(opts.Spec.GetValue()[:]), "hus-container") {
+		if strings.Contains(string(opts.Spec.GetValue()[:]), "hus-container12") {
+			klog.V(0).Infof("DEBUG: In Create, is hus-container12, got 300001: %v", strings.Contains(string(opts.Spec.GetValue()[:]), "300001"))
+		} else {
+			klog.V(0).Infof("DEBUG: In Create, is hus-container, got 300001: %v", strings.Contains(string(opts.Spec.GetValue()[:]), "300001"))
+		}
+	}
+
 	if r.RuntimePath != "" {
 		opts.Runtime = r.RuntimePath
 	}

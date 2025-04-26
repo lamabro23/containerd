@@ -35,6 +35,7 @@ import (
 	ver "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/containers"
 	"github.com/containerd/containerd/v2/core/images"
@@ -317,6 +318,11 @@ func (c *container) NewTask(ctx context.Context, ioCreate cio.Creator, opts ...N
 		tracing.Attribute("task.request.options", request.Options.String()),
 		tracing.Attribute("task.runtime.name", info.runtime),
 	)
+	// request.Rootfs[0].Options[0] = request.Rootfs[0].Options[0] + ",1:2048:256"
+	// request.Rootfs[0].Options[1] = request.Rootfs[0].Options[1] + ",1:2048:256"
+	// request.Rootfs[0].Options[0] = "uidmap=300000:256:1"
+	// request.Rootfs[0].Options[1] = "gidmap=300000:256:1"
+	klog.V(0).InfoS("DEBUG: In Container.NewTask() creating task", "container", c.id, "request.Rootfs[0].Options", request.Rootfs[0].Options)
 	response, err := c.client.TaskService().Create(ctx, request)
 	if err != nil {
 		return nil, errgrpc.ToNative(err)

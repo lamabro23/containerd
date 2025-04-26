@@ -21,12 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/containerd/containerd/v2/pkg/tracing"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/log"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 
 	containerd "github.com/containerd/containerd/v2/client"
 	cio "github.com/containerd/containerd/v2/internal/cri/io"
@@ -85,6 +87,25 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	if err != nil {
 		return nil, fmt.Errorf("sandbox %q not found: %w", meta.SandboxID, err)
 	}
+	if strings.Contains(config.Metadata.Name, "hus-container12") {
+		klog.V(0).Infof("DEBUG: In StartContainer, matched container name: %s", config.Metadata.Name)
+		klog.V(0).Infof("DEBUG: In StartContainer, UIDs before change: %v", sandbox.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids)
+		klog.V(0).Infof("DEBUG: In StartContainer, GIDs before change: %v", sandbox.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids)
+
+		for _, v := range sandbox.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids {
+			if v.ContainerId == 300000 {
+				v.ContainerId = 300001
+			}
+		}
+
+		for _, v := range sandbox.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids {
+			if v.ContainerId == 300000 {
+				v.ContainerId = 300001
+			}
+		}
+		klog.V(0).Infof("DEBUG: In StartContainer, UIDs after change: %v", sandbox.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids)
+		klog.V(0).Infof("DEBUG: In StartContainer, GIDs after change: %v", sandbox.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids)
+	}
 	sandboxID := meta.SandboxID
 	if sandbox.Status.Get().State != sandboxstore.StateReady {
 		return nil, fmt.Errorf("sandbox container %q is not running", sandboxID)
@@ -94,6 +115,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	// Recheck target container validity in Linux namespace options.
 	if linux := config.GetLinux(); linux != nil {
 		nsOpts := linux.GetSecurityContext().GetNamespaceOptions()
+		klog.V(0).Infof("DEBUG: In StartContainer, nsOpts: %v", nsOpts)
 		if nsOpts.GetPid() == runtime.NamespaceMode_TARGET {
 			_, err := c.validateTargetContainer(sandboxID, nsOpts.TargetId)
 			if err != nil {
@@ -174,6 +196,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	}
 
 	// Start containerd task.
+	klog.V(0).Infof("Starting containerd task %q", id)
 	if err := task.Start(ctx); err != nil {
 		return nil, fmt.Errorf("failed to start containerd task %q: %w", id, err)
 	}

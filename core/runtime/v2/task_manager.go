@@ -32,6 +32,7 @@ import (
 	"github.com/containerd/typeurl/v2"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-spec/specs-go/features"
+	"k8s.io/klog/v2"
 
 	apitypes "github.com/containerd/containerd/api/types"
 
@@ -113,6 +114,8 @@ func (m *TaskManager) ID() string {
 
 // Create launches new shim instance and creates new task
 func (m *TaskManager) Create(ctx context.Context, taskID string, opts runtime.CreateOpts) (_ runtime.Task, retErr error) {
+	// klog.V(0).Infof("DEBUG: In TaskManager.Create, taskID: %s, opts: %v", taskID, opts)
+	klog.V(0).Infof("DEBUG: In TaskManager.Create, opts.Spec: %v", opts.Spec)
 	bundle, err := NewBundle(ctx, m.root, m.state, taskID, opts.Spec)
 	if err != nil {
 		return nil, err

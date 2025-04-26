@@ -4,7 +4,9 @@ package tasks
 
 import (
 	context "context"
+
 	ttrpc "github.com/containerd/ttrpc"
+	"github.com/sirupsen/logrus"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -165,6 +167,7 @@ func NewTTRPCTasksClient(client *ttrpc.Client) TTRPCTasksService {
 }
 
 func (c *ttrpctasksClient) Create(ctx context.Context, req *CreateTaskRequest) (*CreateTaskResponse, error) {
+	logrus.Infof("DEBUG: In TTRPCv1.Create(): %v", req)
 	var resp CreateTaskResponse
 	if err := c.client.Call(ctx, "containerd.services.tasks.v1.Tasks", "Create", req, &resp); err != nil {
 		return nil, err

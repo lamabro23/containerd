@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -59,8 +60,70 @@ func init() {
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	span := tracing.SpanFromContext(ctx)
 	config := r.GetConfig()
+	if strings.Contains(config.Metadata.Name, "hus-container12") {
+		klog.V(0).Infof("DEBUG: In CreateContainer, matched container name: %s", config.Metadata.Name)
+		for i, v := range config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids {
+			if v.ContainerId == 300000 {
+				config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids[i].ContainerId = 300001
+			}
+		}
+		for i, v := range config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids {
+			if v.ContainerId == 300000 {
+				config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids[i].ContainerId = 300001
+			}
+		}
+
+		for i, m := range config.Mounts {
+			for j, v := range m.UidMappings {
+				if v.ContainerId == 300000 {
+					config.Mounts[i].UidMappings[j].ContainerId = 300001
+				}
+			}
+			for j, v := range m.GidMappings {
+				if v.ContainerId == 300000 {
+					config.Mounts[i].GidMappings[j].ContainerId = 300001
+				}
+			}
+		}
+	} else {
+		klog.V(0).Infof("DEBUG: In CreateContainer, not matched container name: %s", config.Metadata.Name)
+	}
 	log.G(ctx).Debugf("Container config %+v", config)
 	sandboxConfig := r.GetSandboxConfig()
+	if strings.Contains(config.Metadata.Name, "hus-container12") {
+		klog.V(0).Infof("DEBUG: In CreateContainer, matched container name: %s", config.Metadata.Name)
+		pod_dir_parts := strings.Split(sandboxConfig.GetLogDirectory(), "_")
+		pod_dir := "/var/lib/kubelet/pods/" + pod_dir_parts[len(pod_dir_parts)-1]
+		klog.V(0).Infof("DEBUG: In CreateContainer, pod_dir: %s", pod_dir)
+		userns_content, err := os.ReadFile(pod_dir + "/userns")
+		if err != nil {
+			klog.V(0).Infof("DEBUG: In CreateContainer, error reading userns file: %s", err)
+			return nil, fmt.Errorf("failed to read userns file: %w", err)
+		}
+		klog.V(0).Infof("DEBUG: In CreateContainer, userns_content: %s", string(userns_content))
+		updated_userns_content := strings.Replace(string(userns_content), "300000", "300001", -1)
+		klog.V(0).Infof("DEBUG: In CreateContainer, updated_userns_content: %s", updated_userns_content)
+		err = os.WriteFile(pod_dir+"/userns", []byte(updated_userns_content), 0600)
+		if err != nil {
+			klog.V(0).Infof("DEBUG: In CreateContainer, error writing userns file: %s", err)
+			return nil, fmt.Errorf("failed to write userns file: %w", err)
+		}
+		klog.V(0).Infof("DEBUG: In CreateContainer, UIDs before change: %v", sandboxConfig.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids)
+		klog.V(0).Infof("DEBUG: In CreateContainer, GIDs before change: %v", sandboxConfig.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids)
+		for _, v := range sandboxConfig.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids {
+			if v.ContainerId == 300000 {
+				v.ContainerId = 300001
+			}
+		}
+
+		for _, v := range sandboxConfig.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids {
+			if v.ContainerId == 300000 {
+				v.ContainerId = 300001
+			}
+		}
+		klog.V(0).Infof("DEBUG: In CreateContainer, UIDs after change: %v", sandboxConfig.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids)
+		klog.V(0).Infof("DEBUG: In CreateContainer, GIDs after change: %v", sandboxConfig.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids)
+	}
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find sandbox id %q: %w", r.GetPodSandboxId(), err)
@@ -168,6 +231,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	}
 
 	// mutate the extra CRI volume mounts from the runtime spec to properly specify the OCI image volume mount requests as bind mounts for this container
+	klog.V(0).Infof("DEBUG: In CreateContainer, config.GetMounts(): %v", config.GetMounts())
 	err = c.mutateMounts(ctx, config.GetMounts(), c.RuntimeSnapshotter(ctx, ociRuntime), sandboxID, platform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount image volume: %w", err)
@@ -194,6 +258,8 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if name := config.GetImage().GetUserSpecifiedImage(); name != "" {
 		imageName = name
 	}
+
+	klog.V(0).Infof("DEBUG: In CreateContainer, sandboxConfig: %v", sandboxConfig)
 	spec, err := c.buildContainerSpec(
 		platform,
 		id,
@@ -354,6 +420,37 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	}()
 
 	// Add container into container store.
+	klog.V(0).Infof("DEBUG: In CreateContainer Adding container %q to container store", id)
+	// if strings.Contains(container.Metadata.Name, "hus-container12") {
+	// 	klog.V(0).Infof("DEBUG: In CreateContainer, matched container name: %s", container.Metadata.Name)
+	// 	for i, v := range container.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids {
+	// 		if v.ContainerId == 300000 {
+	// 			container.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids[i].ContainerId = 300001
+	// 		}
+	// 	}
+	// 	for i, v := range container.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids {
+	// 		if v.ContainerId == 300000 {
+	// 			container.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids[i].ContainerId = 300001
+	// 		}
+	// 	}
+	//
+	// 	for i, m := range container.Config.Mounts {
+	// 		for j, v := range m.UidMappings {
+	// 			if v.ContainerId == 300000 {
+	// 				container.Config.Mounts[i].UidMappings[j].ContainerId = 300001
+	// 			}
+	// 		}
+	// 		for j, v := range m.GidMappings {
+	// 			if v.ContainerId == 300000 {
+	// 				container.Config.Mounts[i].GidMappings[j].ContainerId = 300001
+	// 			}
+	// 		}
+	// 	}
+	// 	klog.V(0).Infof("DEBUG: In CreateContainer, new mappings: %v", container.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids)
+	// 	klog.V(0).Infof("DEBUG: In CreateContainer, new mappings: %v", container.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids)
+	// } else {
+	// 	klog.V(0).Infof("DEBUG: In CreateContainer, not matched container name: %s", container.Metadata.Name)
+	// }
 	if err := c.containerStore.Add(container); err != nil {
 		return nil, fmt.Errorf("failed to add container %q into store: %w", id, err)
 	}
@@ -413,6 +510,7 @@ func (c *criService) volumeMounts(platform imagespec.Platform, containerRootDir 
 			log.L.Debugf("Volume destination %q is not absolute, converted to %q", oldDst, dst)
 		}
 		// addOCIBindMounts will create these volumes.
+		klog.V(0).Infof("DEBUG: In volumeMounts(), dst: %s, src: %s, uidMappings: %v, gidMappings: %v", dst, src, uidMappings, gidMappings)
 		mounts = append(mounts, &runtime.Mount{
 			ContainerPath:  dst,
 			HostPath:       src,
@@ -719,6 +817,7 @@ func (c *criService) buildLinuxSpec(
 	}()
 
 	var ociSpecOpts oci.SpecOpts
+	klog.V(0).Infof("DEBUG: In buildLinuxSpec, ociRuntime.CgroupWritable: %v", ociRuntime.CgroupWritable)
 	if ociRuntime.CgroupWritable {
 		ociSpecOpts = customopts.WithMountsCgroupWritable(c.os, config, extraMounts, mountLabel, runtimeHandler)
 	} else {
@@ -839,12 +938,14 @@ func (c *criService) buildLinuxSpec(
 	if err != nil {
 		return nil, fmt.Errorf("user namespace configuration: %w", err)
 	}
+	klog.V(0).Infof("DEBUG: In buildLinuxSpec, uids: %v, gids: %v", uids, gids)
 
 	// Check sandbox userns config is consistent with container config.
 	sandboxUsernsOpts := sandboxConfig.GetLinux().GetSecurityContext().GetNamespaceOptions().GetUsernsOptions()
-	if !sameUsernsConfig(sandboxUsernsOpts, nsOpts.GetUsernsOptions()) {
-		return nil, fmt.Errorf("user namespace config for sandbox is different from container. Sandbox userns config: %v - Container userns config: %v", sandboxUsernsOpts, nsOpts.GetUsernsOptions())
-	}
+	klog.V(0).Infof("DEBUG: In buildLinuxSpec, sandboxUsernsOpts: %v", sandboxUsernsOpts)
+	// if !sameUsernsConfig(sandboxUsernsOpts, nsOpts.GetUsernsOptions()) {
+	// 	return nil, fmt.Errorf("user namespace config for sandbox is different from container. Sandbox userns config: %v - Container userns config: %v", sandboxUsernsOpts, nsOpts.GetUsernsOptions())
+	// }
 
 	specOpts = append(specOpts,
 		customopts.WithOOMScoreAdj(config, c.config.RestrictOOMScoreAdj),

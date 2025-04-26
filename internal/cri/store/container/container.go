@@ -28,6 +28,7 @@ import (
 	"github.com/containerd/errdefs"
 
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	"k8s.io/klog/v2"
 )
 
 // Container contains all resources associated with the container. All methods to
@@ -125,6 +126,24 @@ func NewStore(labels *label.Store) *Store {
 // Add a container into the store. Returns errdefs.ErrAlreadyExists if the
 // container already exists.
 func (s *Store) Add(c Container) error {
+	klog.V(0).Infof("DEBUG: In Store.Add, container: %v", c.Config.Linux.SecurityContext.NamespaceOptions)
+	// if strings.Contains(c.Metadata.Name, "hus-container12") {
+	// 	klog.V(0).Infof("DEBUG: In Store.Add, matched container name: %s", c.Metadata.Name)
+	// 	for i, v := range c.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids {
+	// 		if v.ContainerId == 300000 {
+	// 			c.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids[i].ContainerId = 300001
+	// 		}
+	// 	}
+	// 	for i, v := range c.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids {
+	// 		if v.ContainerId == 300000 {
+	// 			c.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids[i].ContainerId = 300001
+	// 		}
+	// 	}
+	// 	klog.V(0).Infof("DEBUG: In Store.Add, new mappings: %v", c.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Uids)
+	// 	klog.V(0).Infof("DEBUG: In Store.Add, new mappings: %v", c.Config.Linux.SecurityContext.NamespaceOptions.UsernsOptions.Gids)
+	// } else {
+	// 	klog.V(0).Infof("DEBUG: In Store.Add, not matched container name: %s", c.Metadata.Name)
+	// }
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	if _, ok := s.containers[c.ID]; ok {
@@ -137,6 +156,7 @@ func (s *Store) Add(c Container) error {
 		return err
 	}
 	s.containers[c.ID] = c
+	// klog.V(0).Infof("DEBUG: In Store.Add, new s.containers state: %v", s.containers)
 	return nil
 }
 
@@ -153,6 +173,9 @@ func (s *Store) Get(id string) (Container, error) {
 		return Container{}, err
 	}
 	if c, ok := s.containers[id]; ok {
+		// if strings.Contains(c.Metadata.Name, "hus-container") {
+		// 	klog.V(0).Infof("DEBUG: In Store.Get, container (%s): %v", c.Config.Metadata.Name, c.Config.Linux.SecurityContext.NamespaceOptions)
+		// }
 		return c, nil
 	}
 	return Container{}, errdefs.ErrNotFound

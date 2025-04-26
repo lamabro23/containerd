@@ -24,6 +24,7 @@ import (
 
 	"github.com/containerd/containerd/api/types"
 	"github.com/containerd/continuity/fs"
+	"k8s.io/klog/v2"
 )
 
 // HasBindMounts This is a flag to conditionally disable code that relies on working bind-mount support, so such code is easier to find across codebase.
@@ -48,7 +49,10 @@ type Mount struct {
 // All mounts all the provided mounts to the provided target. If submounts are
 // present, it assumes that parent mounts come before child mounts.
 func All(mounts []Mount, target string) error {
+	klog.V(0).Infof("DEBUG: In All, mounts: %v, target: %s", mounts, target)
 	for _, m := range mounts {
+		// m.Options[0] = "uidmap=1001:0:1"
+		// m.Options[1] = "gidmap=1001:0:1"
 		if err := m.Mount(target); err != nil {
 			return err
 		}

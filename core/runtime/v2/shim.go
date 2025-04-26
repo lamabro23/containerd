@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/klog/v2"
 
 	eventstypes "github.com/containerd/containerd/api/events"
 	task "github.com/containerd/containerd/api/runtime/task/v3"
@@ -581,6 +582,7 @@ func (s *shimTask) Create(ctx context.Context, opts runtime.CreateOpts) (runtime
 		})
 	}
 
+	klog.V(0).Infof("DEBUG: In shimTask.Create, request: %v", request)
 	_, err := s.task.Create(ctx, request)
 	if err != nil {
 		return nil, errgrpc.ToNative(err)

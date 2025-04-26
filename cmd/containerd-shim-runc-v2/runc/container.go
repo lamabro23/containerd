@@ -36,6 +36,7 @@ import (
 	"github.com/containerd/errdefs/pkg/errgrpc"
 	"github.com/containerd/log"
 	"github.com/containerd/typeurl/v2"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/cmd/containerd-shim-runc-v2/process"
 	"github.com/containerd/containerd/v2/core/mount"
@@ -103,6 +104,13 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 
 	var mounts []mount.Mount
 	for _, pm := range pmounts {
+		// uidMap := pm.Options[0]
+		// newUidMaps := "300000:256:1,65535:1024:1"
+		// pm.Options[0] = fmt.Sprintf("%s,%s", uidMap, newUidMaps)
+
+		// gidMap := pm.Options[1]
+		// newGidMaps := "300000:256:1,65535:1024:1"
+		// pm.Options[1] = fmt.Sprintf("%s,%s", gidMap, newGidMaps)
 		mounts = append(mounts, mount.Mount{
 			Type:    pm.Type,
 			Source:  pm.Source,
@@ -117,6 +125,7 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 			}
 		}
 	}()
+	klog.V(0).Infof("DEBUG: In NewContainer -> Mounting rootfs %q with %v", rootfs, mounts)
 	if err := mount.All(mounts, rootfs); err != nil {
 		return nil, fmt.Errorf("failed to mount rootfs component: %w", err)
 	}

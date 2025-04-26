@@ -31,6 +31,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 	crierrors "k8s.io/cri-api/pkg/errors"
+	"k8s.io/klog/v2"
 
 	"github.com/containerd/containerd/v2/core/containers"
 	"github.com/containerd/containerd/v2/core/mount"
@@ -182,27 +183,91 @@ func withMounts(osi osinterface.OS, config *runtime.ContainerConfig, extra []*ru
 				}
 			}
 
+			isIdmapped := false
 			var uidMapping []runtimespec.LinuxIDMapping
 			if mount.UidMappings != nil {
+				klog.V(0).Infof("DEBUG: In withMounts, mount: %v", mount)
 				for _, mapping := range mount.UidMappings {
-					uidMapping = append(uidMapping, runtimespec.LinuxIDMapping{
-						HostID:      mapping.HostId,
-						ContainerID: mapping.ContainerId,
-						Size:        mapping.Length,
-					})
+					klog.V(0).Infof("DEBUG: In withMounts, mapping: %v (%d)", mapping, mount.FsUser)
+					if mount.FsUser == nil {
+						uidMapping = append(uidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						continue
+					}
+
+					if mapping.ContainerId == uint32(mount.FsUser.GetValue()) {
+						uidMapping = append(uidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						isIdmapped = true
+					}
 				}
 			}
 			var gidMapping []runtimespec.LinuxIDMapping
 			if mount.GidMappings != nil {
 				for _, mapping := range mount.GidMappings {
-					gidMapping = append(gidMapping, runtimespec.LinuxIDMapping{
-						HostID:      mapping.HostId,
-						ContainerID: mapping.ContainerId,
-						Size:        mapping.Length,
-					})
+					klog.V(0).Infof("DEBUG: In withMounts, mapping: %v (%d)", mapping, mount.FsGroup)
+					if mount.FsGroup == nil {
+						gidMapping = append(gidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						continue
+					}
+
+					if mapping.ContainerId == uint32(mount.FsGroup.GetValue()) {
+						gidMapping = append(gidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						isIdmapped = true
+					}
 				}
 			}
 
+			// if len(mount.UidMappings) > 1 && len(mount.GidMappings) > 1 {
+			// 	if strings.Contains(dst, "/etc/secret-volume") {
+			// 		klog.V(0).Infof("DEBUG: In withMounts, containerConfig: %v", config)
+			// 		uidMapping = []runtimespec.LinuxIDMapping{
+			// 			{
+			// 				ContainerID: mount.UidMappings[1].ContainerId,
+			// 				HostID:      mount.UidMappings[1].HostId,
+			// 				Size:        mount.UidMappings[1].Length,
+			// 			},
+			// 		}
+			// 		gidMapping = []runtimespec.LinuxIDMapping{
+			// 			{
+			// 				ContainerID: mount.GidMappings[1].ContainerId,
+			// 				HostID:      mount.GidMappings[1].HostId,
+			// 				Size:        mount.GidMappings[1].Length,
+			// 			},
+			// 		}
+			// 	} else {
+			// 		uidMapping = []runtimespec.LinuxIDMapping{
+			// 			{
+			// 				ContainerID: mount.UidMappings[0].ContainerId,
+			// 				HostID:      mount.UidMappings[0].HostId,
+			// 				Size:        mount.UidMappings[0].Length,
+			// 			},
+			// 		}
+			// 		gidMapping = []runtimespec.LinuxIDMapping{
+			// 			{
+			// 				ContainerID: mount.GidMappings[0].ContainerId,
+			// 				HostID:      mount.GidMappings[0].HostId,
+			// 				Size:        mount.GidMappings[0].Length,
+			// 			},
+			// 		}
+			// 	}
+			// }
+
+			klog.V(0).Infof("DEBUG: In withMounts, src: %s, dst: %s, options: %v, uidMapping: %v, gidMapping: %v", src, dst, options, uidMapping, gidMapping)
 			s.Mounts = append(s.Mounts, runtimespec.Mount{
 				Source:      src,
 				Destination: dst,
@@ -210,6 +275,7 @@ func withMounts(osi osinterface.OS, config *runtime.ContainerConfig, extra []*ru
 				Options:     options,
 				UIDMappings: uidMapping,
 				GIDMappings: gidMapping,
+				IDMapped:    isIdmapped,
 			})
 		}
 		return nil

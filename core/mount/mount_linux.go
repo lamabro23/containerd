@@ -81,6 +81,8 @@ func prepareIDMappedOverlay(usernsFd int, options []string) ([]string, func(), e
 	options = append(options[:lowerIdx], options[lowerIdx+1:]...)
 	options = append(options, fmt.Sprintf("lowerdir=%s", strings.Join(tmpLowerdirs, ":")))
 
+	klog.V(0).Infof("DEBUG: In prepareIDMappedOverlay, options: %v", options)
+
 	return options, idMapCleanUp, nil
 }
 
@@ -103,9 +105,18 @@ func (m *Mount) mount(target string) (err error) {
 		options   = m.Options
 	)
 
+	klog.V(0).Infof("DEBUG: In mount, m.Type: %s, target: %s, options: %v", m.Type, target, options)
 	opt := parseMountOptions(options)
+	klog.V(0).Infof("DEBUG: In mount, opt: %v", opt)
 	// The only remapping of both GID and UID is supported
 	if opt.uidmap != "" && opt.gidmap != "" {
+		// opt.uidmap = "100:2147:1"
+		// opt.gidmap = "100:2147:1"
+		// options[0] = "uidmap=100:2147:1"
+		// options[1] = "gidmap=100:2147:1"
+		// options[0] = "uidmap=0:100000:255"
+		// options[1] = "gidmap=0:100000:255"
+		klog.V(0).Infof("DEBUG: In mount, opt.uidmap: %s, opt.gidmap: %s", opt.uidmap, opt.gidmap)
 		if usernsFd, err = GetUsernsFD(opt.uidmap, opt.gidmap); err != nil {
 			return err
 		}
@@ -116,6 +127,7 @@ func (m *Mount) mount(target string) (err error) {
 			var (
 				userNsCleanUp func()
 			)
+			klog.V(0).Infof("DEBUG: In mount, using options: %v", options)
 			options, userNsCleanUp, err = prepareIDMappedOverlay(int(usernsFd.Fd()), options)
 			defer userNsCleanUp()
 
@@ -187,6 +199,7 @@ func (m *Mount) mount(target string) (err error) {
 	if opt.flags&ptypes != 0 {
 		// Change the propagation type.
 		const pflags = ptypes | unix.MS_REC | unix.MS_SILENT
+		klog.V(0).Infof("DEBUG: In mount, remounting %s with flags %d", target, opt.flags&pflags)
 		if err := unix.Mount("", target, "", uintptr(opt.flags&pflags), ""); err != nil {
 			return err
 		}
@@ -208,6 +221,7 @@ func (m *Mount) mount(target string) (err error) {
 			}
 		}
 		// Remount the bind to apply read only.
+		klog.V(0).Infof("DEBUG: In mount, remounting %s with flags %d", target, oflags|unprivFlags|unix.MS_REMOUNT)
 		return unix.Mount("", target, "", uintptr(oflags|unprivFlags|unix.MS_REMOUNT), "")
 	}
 
@@ -217,6 +231,7 @@ func (m *Mount) mount(target string) (err error) {
 			return err
 		}
 	}
+	klog.V(0).Infof("DEBUG: In mount, target: %s, opt: %v", target, opt)
 	return nil
 }
 

@@ -181,6 +181,7 @@ func (in *instrumentedService) CreateContainer(ctx context.Context, r *runtime.C
 		}
 		span.RecordError(err)
 	}()
+	log.G(ctx).Debugf("CreateContainer with config %+v", r.GetConfig())
 	res, err = in.c.CreateContainer(ctrdutil.WithNamespace(ctx), r)
 	return res, errgrpc.ToGRPC(err)
 }

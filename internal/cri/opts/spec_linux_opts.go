@@ -180,24 +180,49 @@ func WithMounts(osi osinterface.OS, config *runtime.ContainerConfig, extra []*ru
 				}
 			}
 
+			forceIdmap := false
 			var uidMapping []runtimespec.LinuxIDMapping
 			if mount.UidMappings != nil {
 				for _, mapping := range mount.UidMappings {
-					uidMapping = append(uidMapping, runtimespec.LinuxIDMapping{
-						HostID:      mapping.HostId,
-						ContainerID: mapping.ContainerId,
-						Size:        mapping.Length,
-					})
+					if mount.FsUser == nil {
+						uidMapping = append(uidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						continue
+					}
+
+					if mapping.ContainerId == uint32(mount.FsUser.GetValue()) {
+						uidMapping = append(uidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						forceIdmap = true
+					}
 				}
 			}
 			var gidMapping []runtimespec.LinuxIDMapping
 			if mount.GidMappings != nil {
 				for _, mapping := range mount.GidMappings {
-					gidMapping = append(gidMapping, runtimespec.LinuxIDMapping{
-						HostID:      mapping.HostId,
-						ContainerID: mapping.ContainerId,
-						Size:        mapping.Length,
-					})
+					if mount.FsGroup == nil {
+						gidMapping = append(gidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						continue
+					}
+
+					if mapping.ContainerId == uint32(mount.FsGroup.GetValue()) {
+						gidMapping = append(gidMapping, runtimespec.LinuxIDMapping{
+							HostID:      mapping.HostId,
+							ContainerID: mapping.ContainerId,
+							Size:        mapping.Length,
+						})
+						forceIdmap = true
+					}
 				}
 			}
 
@@ -208,6 +233,7 @@ func WithMounts(osi osinterface.OS, config *runtime.ContainerConfig, extra []*ru
 				Options:     options,
 				UIDMappings: uidMapping,
 				GIDMappings: gidMapping,
+				ForceIdmap:  forceIdmap,
 			})
 		}
 		return nil

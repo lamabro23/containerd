@@ -172,6 +172,7 @@ type Mount struct {
 	// Every mount point could have its own mapping.
 	UIDMappings []LinuxIDMapping `json:"uidMappings,omitempty" platform:"linux"`
 	GIDMappings []LinuxIDMapping `json:"gidMappings,omitempty" platform:"linux"`
+	ForceIdmap  bool             `json:"forceIdmap,omitempty" platform:"linux"`
 }
 
 // Hook specifies a command that is run at a particular event in the lifecycle of a container

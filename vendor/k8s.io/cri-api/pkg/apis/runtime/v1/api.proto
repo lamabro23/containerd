@@ -253,6 +253,9 @@ message Mount {
     // required.
     // Introduced in the OCI Volume Source KEP: https://kep.k8s.io/4639
     ImageSpec image = 9;
+    int64 fsUser = 10;
+    int64 fsGroup = 11;
+
 }
 
 // IDMapping describes host to container ID mappings for a pod sandbox.

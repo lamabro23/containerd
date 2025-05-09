@@ -468,27 +468,20 @@ func parseUsernsIDMap(runtimeIDMap []*runtime.IDMapping) ([]runtimespec.LinuxIDM
 		return m, nil
 	}
 
-	if len(runtimeIDMap) > 1 {
-		// We only accept 1 line, because containerd.WithRemappedSnapshot() only supports that.
-		return m, fmt.Errorf("only one mapping line supported, got %v mapping lines", len(runtimeIDMap))
-	}
+	for _, idMap := range runtimeIDMap {
+		if idMap == nil {
+			continue
+		}
 
-	// We know len is 1 now.
-	if runtimeIDMap[0] == nil {
-		return m, nil
-	}
-	uidMap := *runtimeIDMap[0]
+		if idMap.Length < 1 {
+			return m, fmt.Errorf("invalid mapping length: %v", idMap.Length)
+		}
 
-	if uidMap.Length < 1 {
-		return m, fmt.Errorf("invalid mapping length: %v", uidMap.Length)
-	}
-
-	m = []runtimespec.LinuxIDMapping{
-		{
-			ContainerID: uidMap.ContainerId,
-			HostID:      uidMap.HostId,
-			Size:        uidMap.Length,
-		},
+		m = append(m, runtimespec.LinuxIDMapping{
+			ContainerID: idMap.ContainerId,
+			HostID:      idMap.HostId,
+			Size:        idMap.Length,
+		})
 	}
 
 	return m, nil
